@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -36,6 +37,7 @@ func (d *deps) Index(w http.ResponseWriter, r *http.Request) {
 	type info struct {
 		DisplayName, Name, Desc, Idle string
 		Languages                     []git.LanguageStat
+		path, ref                     string
 		d                             time.Time
 	}
 
@@ -60,7 +62,7 @@ func (d *deps) Index(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		// Use the same default branch as the repository page for language statistics.
+		// Sort by activity on the same default branch shown on repository pages.
 		mainBranch, err := gr.FindMainBranch(d.c.Repo.MainBranch)
 		if err != nil {
 			log.Println(err)
@@ -71,11 +73,6 @@ func (d *deps) Index(w http.ResponseWriter, r *http.Request) {
 			log.Println(err)
 			continue
 		}
-		languages, err := gr.Languages()
-		if err != nil {
-			log.Printf("languages for %s: %v", name, err)
-		}
-
 		c, err := gr.LastCommit()
 		if err != nil {
 			log.Println(err)
@@ -86,10 +83,28 @@ func (d *deps) Index(w http.ResponseWriter, r *http.Request) {
 			DisplayName: getDisplayName(name),
 			Name:        name,
 			Desc:        getDescription(path),
-			Languages:   languages,
+			path:        path,
+			ref:         mainBranch,
 			Idle:        humanize.Time(c.Commit().Author.When),
 			d:           c.Commit().Author.When,
 		})
+	}
+
+	total := len(infos)
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	if query != "" {
+		needle := strings.ToLower(query)
+		matches := make([]info, 0, len(infos))
+		for _, repo := range infos {
+			if strings.Contains(strings.ToLower(repo.Name+" "+repo.Desc), needle) {
+				matches = append(matches, repo)
+			}
+		}
+		infos = matches
+	}
+	sortMode := "updated"
+	if r.URL.Query().Get("sort") == "name" {
+		sortMode = "name"
 	}
 
 	// Pin configured repositories first; duplicates keep their first listed position.
@@ -101,6 +116,9 @@ func (d *deps) Index(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	sort.SliceStable(infos, func(i, j int) bool {
+		if sortMode == "name" {
+			return strings.ToLower(infos[i].DisplayName) < strings.ToLower(infos[j].DisplayName)
+		}
 		iRank, iPinned := pinned[infos[i].DisplayName]
 		jRank, jPinned := pinned[infos[j].DisplayName]
 		if iPinned != jPinned {
@@ -112,13 +130,60 @@ func (d *deps) Index(w http.ResponseWriter, r *http.Request) {
 		return infos[j].d.Before(infos[i].d)
 	})
 
+	const pageSize = 10
+	filtered := len(infos)
+	pages := max(1, (filtered+pageSize-1)/pageSize)
+	page, err := strconv.Atoi(r.URL.Query().Get("page"))
+	if err != nil || page < 1 {
+		page = 1
+	}
+	page = min(page, pages)
+	start := (page - 1) * pageSize
+	end := min(start+pageSize, filtered)
+	infos = infos[start:end]
+	// Only scan source files for the repositories displayed on this page.
+	for i := range infos {
+		gr, err := git.Open(infos[i].path, infos[i].ref)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		infos[i].Languages, err = gr.Languages()
+		if err != nil {
+			log.Printf("languages for %s: %v", infos[i].Name, err)
+		}
+	}
+	pageURL := func(number int) string {
+		values := url.Values{"page": {strconv.Itoa(number)}}
+		if query != "" {
+			values.Set("q", query)
+		}
+		if sortMode == "name" {
+			values.Set("sort", sortMode)
+		}
+		return "/?" + values.Encode()
+	}
+
 	tpath := filepath.Join(d.c.Dirs.Templates, "*")
 	t := template.Must(template.ParseGlob(tpath))
 
 	data := make(map[string]interface{})
 	data["meta"] = d.c.Meta
 	data["info"] = infos
-	data["total"] = len(infos)
+	data["total"] = total
+	data["filtered"] = filtered
+	data["query"] = query
+	data["sort"] = sortMode
+	data["page"] = page
+	data["pages"] = pages
+	data["start"] = start + 1
+	data["end"] = end
+	if page > 1 {
+		data["prevURL"] = pageURL(page - 1)
+	}
+	if page < pages {
+		data["nextURL"] = pageURL(page + 1)
+	}
 	data["pinned"] = len(pinned) > 0
 
 	if err := t.ExecuteTemplate(w, "index", data); err != nil {

@@ -83,7 +83,7 @@ func TestRepositoryBrowsing(t *testing.T) {
 		{"/sample/blob/main/src/main.go", "chroma", 200}, {"/sample/blob/main/plain.unknownextension", "hello", 200},
 		{"/sample/blob/main/src/main.go?raw=true", "package main", 200},
 		{"/sample/log/main", "Initial project", 200}, {"/sample/commit/" + hash, "diff-add", 200},
-		{"/sample/refs/", "v1.0.0", 200}, {"/static/app.js", "filterRepositories", 200},
+		{"/sample/refs/", "v1.0.0", 200}, {"/static/app.js", "querySelector", 200},
 		{"/missing", "could not be found", 404}, {"/sample/tree/missing/", "could not be found", 404},
 		{"/sample/blob/main/missing", "could not be found", 404}, {"/sample/tree/main/missing", "could not be found", 404},
 		{"/sample/unknown", "could not be found", 404}, {"/unknown/path/again", "could not be found", 404},

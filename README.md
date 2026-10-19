@@ -1,6 +1,6 @@
 # Gitview
 
-A self-hosted Git repository browser written in Go, with a GitHub-inspired interface. Browse files, READMEs, history, diffs, branches, and tags; clone repositories or download archives. Language indicators and size-weighted breakdowns are computed locally using [go-enry](https://github.com/go-enry/go-enry). Vendor, generated, binary, documentation, and data files are excluded; detection can differ from GitHub and does not apply `.gitattributes` overrides. HTTP push is disabled.
+A self-hosted Git repository browser written in Go, with a GitHub-inspired interface. Browse repositories 10 per page with search and sorting, plus files, READMEs, history, diffs, branches, and tags; clone repositories or download archives. Language indicators and size-weighted breakdowns are computed locally using [go-enry](https://github.com/go-enry/go-enry). Vendor, generated, binary, documentation, and data files are excluded; detection can differ from GitHub and does not apply `.gitattributes` overrides. HTTP push is disabled.
 
 ## Run
 
@@ -34,7 +34,7 @@ Names may include the `.git` suffix. Other repositories follow by last updated; 
 Or run with Docker:
 
 ```sh
-docker compose -f contrib/docker-compose.yml up --build
+docker compose -f docker/docker-compose.yml up --build
 ```
 
 ## Mirror GitHub repositories

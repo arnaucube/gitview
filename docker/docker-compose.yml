@@ -2,9 +2,9 @@ services:
   gitview:
     build:
       context: ..
-      dockerfile: contrib/Dockerfile
+      dockerfile: docker/Dockerfile
     ports:
-      - "5555:5555"
+      - "127.0.0.1:5555:5555"
     volumes:
       - ../repos:/app/repos:ro
       - ../config.yaml:/app/config.yaml:ro
