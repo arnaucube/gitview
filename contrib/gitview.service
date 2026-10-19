@@ -1,0 +1,19 @@
+[Unit]
+Description=Gitview repository browser
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=git
+Group=git
+WorkingDirectory=/opt/gitview
+ExecStart=/opt/gitview/bin/gitview --config /opt/gitview/config.yaml
+ProtectSystem=strict
+ProtectHome=strict
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

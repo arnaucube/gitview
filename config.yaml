@@ -1,0 +1,21 @@
+repo:
+  scanPath: ./repos
+  # Show these repositories first, in this order (names with or without .git).
+  pinned: []
+  # pinned: [project-one, project-two]
+  readme: [README.md, readme.md, README, readme]
+  mainBranch: [main, master]
+dirs:
+  templates: ./templates
+  static: ./static
+meta:
+  # Image path relative to dirs.static, used for the logo and favicon.
+  logo: arnaucube.png
+  title: arnaucube's git mirror
+  username: arnaucube
+  description: Mirrors of arnaucube's repos.
+  syntaxHighlight: github
+server:
+  name: localhost:5555
+  host: 0.0.0.0
+  port: 5555

@@ -1,0 +1,1 @@
+{{ define "tree" }}<!doctype html><html lang="en">{{ template "head" . }}<body>{{ template "repoheader" . }}<main class="repo-main">{{ template "toolbar" . }}<div class="path-heading"><a href="/{{ .name }}">{{ .displayname }}</a><span>/</span><strong>{{ .parent }}</strong></div>{{ template "filetable" . }}{{ template "footer" . }}</main></body></html>{{ end }}

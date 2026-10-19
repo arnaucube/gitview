@@ -1,0 +1,7 @@
+.git
+.agents
+.aws
+.codex
+repos
+bin
+node_modules
