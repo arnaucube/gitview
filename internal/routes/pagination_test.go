@@ -65,6 +65,8 @@ func TestRepositoryPagination(t *testing.T) {
 		{"/?page=999999999999999999999999999999", first, "Page 1 of 3"},
 		{"/?sort=name", names(1, 2, 3, 4, 5, 6, 7, 8, 9, 10), "Sorted by"},
 		{"/?sort=name&page=2", names(11, 12, 13, 14, 15, 16, 17, 18, 19, 20), "Page 2 of 3"},
+		{"/?sort=updated", names(1, 2, 3, 4, 5, 6, 7, 8, 9, 10), "last updated"},
+		{"/?sort=updated&page=2", names(11, 12, 13, 14, 15, 16, 17, 18, 19, 20), "Page 2 of 3"},
 		{"/?q=REPO-22", names(22), "Showing 1–1 of"},
 		{"/?q=absent", nil, "No repositories found"},
 		{"/?q=repo-23", nil, "No repositories found"},
@@ -93,31 +95,33 @@ func TestRepositoryPagination(t *testing.T) {
 		})
 	}
 	// Navigation retains both the search query (including special characters) and sorting.
-	w := httptest.NewRecorder()
-	handler.ServeHTTP(w, httptest.NewRequest("GET", "/?q=Web+%26+tools&sort=name&page=2", nil))
-	links := regexp.MustCompile(`rel="(prev|next)" href="([^"]+)"`).FindAllStringSubmatch(w.Body.String(), -1)
-	if len(links) != 2 {
-		t.Fatalf("navigation links: %v", links)
-	}
-	for _, link := range links {
-		target, err := url.Parse(html.UnescapeString(link[2]))
-		if err != nil {
-			t.Fatal(err)
+	for _, sortMode := range []string{"name", "updated"} {
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, httptest.NewRequest("GET", "/?q=Web+%26+tools&sort="+sortMode+"&page=2", nil))
+		links := regexp.MustCompile(`rel="(prev|next)" href="([^"]+)"`).FindAllStringSubmatch(w.Body.String(), -1)
+		if len(links) != 2 {
+			t.Fatalf("navigation links: %v", links)
 		}
-		if target.Query().Get("q") != "Web & tools" || target.Query().Get("sort") != "name" {
-			t.Errorf("navigation lost filters: %s", target)
-		}
-		wantPage := "1"
-		if link[1] == "next" {
-			wantPage = "3"
-		}
-		if target.Query().Get("page") != wantPage {
-			t.Errorf("%s points to %s", link[1], target)
+		for _, link := range links {
+			target, err := url.Parse(html.UnescapeString(link[2]))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if target.Query().Get("q") != "Web & tools" || target.Query().Get("sort") != sortMode {
+				t.Errorf("navigation lost filters: %s", target)
+			}
+			wantPage := "1"
+			if link[1] == "next" {
+				wantPage = "3"
+			}
+			if target.Query().Get("page") != wantPage {
+				t.Errorf("%s points to %s", link[1], target)
+			}
 		}
 	}
 	c.Repo.ScanPath = t.TempDir()
 	handler = Handlers(c)
-	w = httptest.NewRecorder()
+	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, httptest.NewRequest("GET", "/?page=999", nil))
 	if w.Code != 200 || !strings.Contains(w.Body.String(), "No repositories yet") || strings.Contains(w.Body.String(), `class="pagination"`) {
 		t.Fatal("empty repository directory should have no pagination")

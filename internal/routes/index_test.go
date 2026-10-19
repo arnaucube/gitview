@@ -78,6 +78,21 @@ func TestIndexPinnedOrder(t *testing.T) {
 			if !slices.Equal(got, tt.want) {
 				t.Fatalf("repository order: %v; want %v", got, tt.want)
 			}
+			// Recent activity must ignore configured pins and use commit dates.
+			w = httptest.NewRecorder()
+			Handlers(loaded).ServeHTTP(w, httptest.NewRequest("GET", "/?sort=updated", nil))
+			got = nil
+			for _, match := range cards.FindAllStringSubmatch(w.Body.String(), -1) {
+				got = append(got, match[1])
+			}
+			if want := []string{"recent", "second", "sample", "first"}; !slices.Equal(got, want) {
+				t.Fatalf("recent activity order: %v; want %v", got, want)
+			}
+			if !strings.Contains(w.Body.String(), `href="/?sort=updated#recent"`) ||
+				!strings.Contains(w.Body.String(), `<option value="updated" selected>Recent activity</option>`) ||
+				!strings.Contains(w.Body.String(), `id="sort-description">last updated</span>`) {
+				t.Fatal("recent activity navigation or sort state is missing")
+			}
 		})
 	}
 }

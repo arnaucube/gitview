@@ -47,9 +47,10 @@ func (d *deps) Index(w http.ResponseWriter, r *http.Request) {
 		}
 		infos = matches
 	}
-	sortMode := "updated"
-	if r.URL.Query().Get("sort") == "name" {
-		sortMode = "name"
+	sortMode := "pinned"
+	switch r.URL.Query().Get("sort") {
+	case "name", "updated":
+		sortMode = r.URL.Query().Get("sort")
 	}
 
 	// Pin configured repositories first; duplicates keep their first listed position.
@@ -63,6 +64,9 @@ func (d *deps) Index(w http.ResponseWriter, r *http.Request) {
 	sort.SliceStable(infos, func(i, j int) bool {
 		if sortMode == "name" {
 			return strings.ToLower(infos[i].DisplayName) < strings.ToLower(infos[j].DisplayName)
+		}
+		if sortMode == "updated" {
+			return infos[j].updatedAt.Before(infos[i].updatedAt)
 		}
 		iRank, iPinned := pinned[infos[i].DisplayName]
 		jRank, jPinned := pinned[infos[j].DisplayName]
@@ -99,7 +103,7 @@ func (d *deps) Index(w http.ResponseWriter, r *http.Request) {
 		if query != "" {
 			values.Set("q", query)
 		}
-		if sortMode == "name" {
+		if sortMode != "pinned" {
 			values.Set("sort", sortMode)
 		}
 		return "/?" + values.Encode()
