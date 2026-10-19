@@ -182,3 +182,29 @@ func TestLanguagesDocumentationOnly(t *testing.T) {
 		t.Fatalf("documentation counted as source: %+v", stats)
 	}
 }
+
+func TestLastCommitDoesNotEnumerateTags(t *testing.T) {
+	path, repo := commitLanguageFiles(t, map[string]string{"main.go": "package main\n"})
+	tags := filepath.Join(path, ".git", "refs", "tags")
+	if err := os.MkdirAll(tags, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tags, "broken"), []byte("invalid-reference\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	g, err := OpenDefault(path, []string{"main", "master"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	commit, err := g.LastCommit()
+	if err != nil {
+		t.Fatalf("unrelated broken tag prevented reading current commit: %v", err)
+	}
+	head, err := repo.Head()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if commit.Commit().Hash != head.Hash() {
+		t.Fatal("wrong commit selected")
+	}
+}

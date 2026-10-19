@@ -83,6 +83,7 @@ func TestConfiguredBranding(t *testing.T) {
 				t.Errorf("logo content type: %q", got)
 			}
 			loaded.Repo.ScanPath = filepath.Join(t.TempDir(), "missing")
+			handler = Handlers(loaded)
 			w = httptest.NewRecorder()
 			handler.ServeHTTP(w, httptest.NewRequest("GET", "/", nil))
 			if w.Code != 500 || !strings.Contains(w.Body.String(), tt.asset) {

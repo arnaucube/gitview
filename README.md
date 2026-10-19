@@ -29,7 +29,9 @@ repo:
   pinned: [project-one, project-two]
 ```
 
-Names may include the `.git` suffix. Other repositories follow by last updated; ignored or unlisted repositories stay hidden. Restart Gitview after configuration changes.
+The repository catalog is cached in memory. `repo.refreshInterval` defaults to `30s`: after that interval, a list request triggers one background refresh while serving the previous catalog. The first request after startup builds the catalog; refresh failures retain the last successful list. Language results are reused while the commit stays unchanged.
+
+Names may include the `.git` suffix. Other repositories follow by last updated; ignored or unlisted repositories stay hidden. Restart Gitview after configuration or list-template changes.
 
 Or run with Docker:
 

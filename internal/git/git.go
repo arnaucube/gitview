@@ -111,6 +111,24 @@ func Open(path string, ref string) (*GitRepo, error) {
 	return &g, nil
 }
 
+// OpenDefault resolves the configured default branch using a single repository handle.
+func OpenDefault(path string, branches []string) (*GitRepo, error) {
+	g, err := Open(path, "")
+	if err != nil {
+		return nil, err
+	}
+	branch, err := g.FindMainBranch(branches)
+	if err != nil {
+		return nil, err
+	}
+	hash, err := g.r.ResolveRevision(plumbing.Revision(branch))
+	if err != nil {
+		return nil, fmt.Errorf("resolving default branch: %w", err)
+	}
+	g.h = *hash
+	return g, nil
+}
+
 func (g *GitRepo) Commits() ([]*CommitReference, error) {
 	ci, err := g.r.Log(&git.LogOptions{From: g.h})
 	if err != nil {
@@ -155,39 +173,13 @@ func (g *GitRepo) Commits() ([]*CommitReference, error) {
 	return commitRefs, nil
 }
 
+// LastCommit returns the resolved commit without enumerating tags or history.
 func (g *GitRepo) LastCommit() (*CommitReference, error) {
 	c, err := g.r.CommitObject(g.h)
 	if err != nil {
 		return nil, fmt.Errorf("last commit: %w", err)
 	}
-
-	iter, err := g.r.Tags()
-	if err != nil {
-		return nil, err
-	}
-
-	commitRef := &CommitReference{commit: c}
-	if err := iter.ForEach(func(ref *plumbing.Reference) error {
-		obj, err := g.r.TagObject(ref.Hash())
-		switch {
-		case err == nil:
-			if obj.Target == commitRef.commit.Hash {
-				commitRef.AddReference(ref)
-			}
-		case errors.Is(err, plumbing.ErrObjectNotFound):
-			if commitRef.commit.Hash == ref.Hash() {
-				commitRef.AddReference(ref)
-			}
-		default:
-			return err
-		}
-
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-
-	return commitRef, nil
+	return &CommitReference{commit: c}, nil
 }
 
 func (g *GitRepo) FileContent(path string) (string, error) {

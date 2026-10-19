@@ -116,6 +116,7 @@ func TestRepositoryPagination(t *testing.T) {
 		}
 	}
 	c.Repo.ScanPath = t.TempDir()
+	handler = Handlers(c)
 	w = httptest.NewRecorder()
 	handler.ServeHTTP(w, httptest.NewRequest("GET", "/?page=999", nil))
 	if w.Code != 200 || !strings.Contains(w.Body.String(), "No repositories yet") || strings.Contains(w.Body.String(), `class="pagination"`) {

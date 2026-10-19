@@ -4,18 +4,20 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/viper"
 )
 
 type Config struct {
 	Repo struct {
-		ScanPath   string   `mapstructure:"scanPath"`
-		Pinned     []string `mapstructure:"pinned,omitempty"`
-		Readme     []string `mapstructure:"readme"`
-		MainBranch []string `mapstructure:"mainBranch"`
-		Ignore     []string `mapstructure:"ignore,omitempty"`
-		Unlisted   []string `mapstructure:"unlisted,omitempty"`
+		RefreshInterval time.Duration `mapstructure:"refreshInterval"`
+		ScanPath        string        `mapstructure:"scanPath"`
+		Pinned          []string      `mapstructure:"pinned,omitempty"`
+		Readme          []string      `mapstructure:"readme"`
+		MainBranch      []string      `mapstructure:"mainBranch"`
+		Ignore          []string      `mapstructure:"ignore,omitempty"`
+		Unlisted        []string      `mapstructure:"unlisted,omitempty"`
 	} `mapstructure:"repo"`
 	Dirs struct {
 		Templates string `mapstructure:"templates"`
@@ -42,6 +44,7 @@ type Config struct {
 func Read(f string) (*Config, error) {
 	v := viper.New()
 	v.SetConfigFile(f)
+	v.SetDefault("repo.refreshInterval", "30s")
 	v.SetEnvPrefix("GITVIEW")
 	v.AutomaticEnv()
 
@@ -52,6 +55,10 @@ func Read(f string) (*Config, error) {
 	c := &Config{}
 	if err := v.Unmarshal(c); err != nil {
 		return nil, fmt.Errorf("parsing config: %w", err)
+	}
+
+	if c.Repo.RefreshInterval <= 0 {
+		return nil, fmt.Errorf("repo.refreshInterval must be positive")
 	}
 
 	var err error

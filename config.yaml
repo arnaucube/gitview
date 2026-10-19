@@ -1,5 +1,7 @@
 repo:
   scanPath: ./repos
+  # Refresh cached list metadata in the background after this interval.
+  refreshInterval: 1200s
   # Show these repositories first, in this order (names with or without .git).
   pinned: [babyjubjub-rs, sonobe, poseidon-rs, go-snark, math, keccak256-circom, protogalaxy-poc, evm-rs, rv32-rs, arbo, eth-kzg-ceremony-alt, go-blindsecp256k1, mimc-rs, fhe-study, ipa-rs, ring-signatures-rs, miksi-core, chip8-rs]
   # pinned: [project-one, project-two]

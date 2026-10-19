@@ -1,7 +1,9 @@
 package routes
 
 import (
+	"html/template"
 	"net/http"
+	"path/filepath"
 
 	"gitview/internal/config"
 )
@@ -33,7 +35,8 @@ func (d *deps) Multiplex(w http.ResponseWriter, r *http.Request) {
 
 func Handlers(c *config.Config) *http.ServeMux {
 	mux := http.NewServeMux()
-	d := deps{c}
+	d := deps{c: c, indexTemplate: template.Must(template.ParseGlob(filepath.Join(c.Dirs.Templates, "*")))}
+	d.catalog = newRepositoryCatalog(c.Repo.RefreshInterval, d.scanCatalog)
 
 	mux.HandleFunc("GET /{$}", d.Index)
 	mux.HandleFunc("GET /{name}", d.Multiplex)

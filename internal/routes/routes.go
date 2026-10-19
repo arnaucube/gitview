@@ -7,12 +7,10 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/dustin/go-humanize"
@@ -23,78 +21,25 @@ import (
 )
 
 type deps struct {
-	c *config.Config
+	c             *config.Config
+	catalog       *repositoryCatalog
+	indexTemplate *template.Template
 }
 
 func (d *deps) Index(w http.ResponseWriter, r *http.Request) {
-	dirs, err := os.ReadDir(d.c.Repo.ScanPath)
+	infos, err := d.catalog.snapshot(r.Context())
 	if err != nil {
-		d.Write500(w)
-		log.Printf("reading scan path: %s", err)
+		if r.Context().Err() == nil {
+			d.Write500(w)
+		}
 		return
-	}
-
-	type info struct {
-		DisplayName, Name, Desc, Idle string
-		Languages                     []git.LanguageStat
-		path, ref                     string
-		d                             time.Time
-	}
-
-	infos := []info{}
-
-	for _, dir := range dirs {
-		name := dir.Name()
-		if !dir.IsDir() || d.isIgnored(name) || d.isUnlisted(name) {
-			continue
-		}
-
-		path, err := securejoin.SecureJoin(d.c.Repo.ScanPath, name)
-		if err != nil {
-			log.Printf("securejoin error: %v", err)
-			d.Write404(w)
-			return
-		}
-
-		gr, err := git.Open(path, "")
-		if err != nil {
-			log.Println(err)
-			continue
-		}
-
-		// Sort by activity on the same default branch shown on repository pages.
-		mainBranch, err := gr.FindMainBranch(d.c.Repo.MainBranch)
-		if err != nil {
-			log.Println(err)
-			continue
-		}
-		gr, err = git.Open(path, mainBranch)
-		if err != nil {
-			log.Println(err)
-			continue
-		}
-		c, err := gr.LastCommit()
-		if err != nil {
-			log.Println(err)
-			continue
-		}
-
-		infos = append(infos, info{
-			DisplayName: getDisplayName(name),
-			Name:        name,
-			Desc:        getDescription(path),
-			path:        path,
-			ref:         mainBranch,
-			Idle:        humanize.Time(c.Commit().Author.When),
-			d:           c.Commit().Author.When,
-		})
 	}
 
 	total := len(infos)
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
 	if query != "" {
 		needle := strings.ToLower(query)
-		matches := make([]info, 0, len(infos))
+		matches := make([]repositoryInfo, 0, len(infos))
 		for _, repo := range infos {
 			if strings.Contains(strings.ToLower(repo.Name+" "+repo.Desc), needle) {
 				matches = append(matches, repo)
@@ -127,7 +72,7 @@ func (d *deps) Index(w http.ResponseWriter, r *http.Request) {
 		if iPinned && iRank != jRank {
 			return iRank < jRank
 		}
-		return infos[j].d.Before(infos[i].d)
+		return infos[j].updatedAt.Before(infos[i].updatedAt)
 	})
 
 	const pageSize = 10
@@ -141,14 +86,10 @@ func (d *deps) Index(w http.ResponseWriter, r *http.Request) {
 	start := (page - 1) * pageSize
 	end := min(start+pageSize, filtered)
 	infos = infos[start:end]
-	// Only scan source files for the repositories displayed on this page.
+	// Only first visits to a commit need source analysis; later visits reuse its results.
 	for i := range infos {
-		gr, err := git.Open(infos[i].path, infos[i].ref)
-		if err != nil {
-			log.Println(err)
-			continue
-		}
-		infos[i].Languages, err = gr.Languages()
+		infos[i].Idle = humanize.Time(infos[i].updatedAt)
+		infos[i].Languages, err = infos[i].languageStats()
 		if err != nil {
 			log.Printf("languages for %s: %v", infos[i].Name, err)
 		}
@@ -163,9 +104,6 @@ func (d *deps) Index(w http.ResponseWriter, r *http.Request) {
 		}
 		return "/?" + values.Encode()
 	}
-
-	tpath := filepath.Join(d.c.Dirs.Templates, "*")
-	t := template.Must(template.ParseGlob(tpath))
 
 	data := make(map[string]interface{})
 	data["meta"] = d.c.Meta
@@ -186,7 +124,7 @@ func (d *deps) Index(w http.ResponseWriter, r *http.Request) {
 	}
 	data["pinned"] = len(pinned) > 0
 
-	if err := t.ExecuteTemplate(w, "index", data); err != nil {
+	if err := d.indexTemplate.ExecuteTemplate(w, "index", data); err != nil {
 		log.Println(err)
 		return
 	}
